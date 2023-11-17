@@ -1,0 +1,527 @@
+---
+title: "Fish Follow Data"
+author: "Jake Snyder"
+date: "2023-11-13"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages, include=FALSE}
+
+library(readxl)
+library(ggplot2)
+library(dplyr)
+install.packages("ggExtra")
+library(ggExtra)
+library(purrr)
+library(boot)
+library(ggpubr)
+
+```
+
+
+```{r functions}
+
+#function that selects and renames columns, and calculates total macroalgae bites
+fishfunc <- function(fish){
+fish <- fish[, -which(names(fish) %in% c("Mean Turbidity\r\n(NTU, VuSitu)",
+                                                  "Max Turbidity\r\n(NTU, VuSitu)",
+                                                  "Total...28",
+                                                  "...29",
+                                                  "Turf...30",
+                                                  "Total Macro",
+                                                  "Coral Exterior...32",
+                                                  "CCA...33",
+                                                  "Sponge...34",
+                                                  "Mucus",
+                                                  "Other...36","
+                                                  Total...37",
+                                                  "Comments",
+                                                  "SeS?"))]
+
+fish <- na.omit(fish)
+
+
+colnames(fish) <- c("Month",
+                       "Date",
+                       "Location",
+                       "Site",
+                       "TimeStart",
+                       "TimeEnd",
+                       "Turb.NTU",
+                       "Vis.m",
+                       "Sal.PSU",
+                       "TDS.ppt",
+                       "DO.mg/L",
+                       "DO.%sat",
+                       "Temp.C",
+                       "Size.cm",
+                       "Depth.m",
+                       "FollowedTime.min",
+                       "Turf.tb",
+                       "UnknownMacro.tb",
+                       "D.versluysii",
+                       "G.salicornia",
+                       "CoralExt.tb",
+                       "BetBranch.tb",
+                       "CCA.tb",
+                       "Sponge.tb",
+                       "Other.tb",
+                       "Total.tb",
+                       "Diver")
+
+Macro.sum <- fish$UnknownMacro.tb + fish$D.versluysii + fish$G.salicornia
+Macro.sum <- as.data.frame(Macro.sum)
+fish <- fish %>% 
+  mutate(Macro.sum)
+
+fish
+}
+
+#function that calculates bites per minute
+bpmfunc <- function(fish){
+
+Turf.bpm <- sqrt(fish$Turf.tb)/fish$FollowedTime.min
+Turf.bpm <- as.data.frame(Turf.bpm)
+fish <- fish %>% 
+  mutate(Turf.bpm)
+
+Macro.bpm <- sqrt(fish$Macro.sum)/fish$FollowedTime.min
+Macro.bpm <- as.data.frame(Macro.bpm)
+fish <- fish %>% 
+  mutate(Macro.bpm)
+
+CoralExt.bpm <- sqrt(fish$CoralExt.tb)/fish$FollowedTime.min
+CoralExt.bpm  <- as.data.frame(CoralExt.bpm)
+fish <- fish %>% 
+  mutate(CoralExt.bpm)
+
+CCA.bpm <- sqrt(fish$CCA.tb)/fish$FollowedTime.min
+CCA.bpm  <- as.data.frame(CCA.bpm)
+fish <- fish %>% 
+  mutate(CCA.bpm)
+
+Sponge.bpm <- sqrt(fish$Sponge.tb)/fish$FollowedTime.min
+Sponge.bpm  <- as.data.frame(Sponge.bpm)
+fish <- fish %>% 
+  mutate(Sponge.bpm)
+
+Other.bpm <- sqrt(fish$Other.tb)/fish$FollowedTime.min
+Other.bpm  <- as.data.frame(Other.bpm)
+fish <- fish %>% 
+  mutate(Other.bpm)
+
+Total.bpm <- sqrt(fish$Total.tb)/fish$FollowedTime.min
+Total.bpm  <- as.data.frame(Total.bpm)
+fish <- fish %>% 
+  mutate(Total.bpm)
+
+}
+
+#identifying upper and lower bounds with IQR
+out.func <- function(fish, var){
+IQR.sum <- summary(fish$var)
+Q1 <- IQR.sum[2]
+Q3 <- IQR.sum[5]
+IQR <- Q3-Q1
+
+upper.y = Q3 + 1.5*IQR
+lower.y = Q1 - 1.5*IQR
+
+IQR.sum <- summary(fish$var)
+Q1 <- IQR.sum[2]
+Q3 <- IQR.sum[5]
+IQR <- Q3-Q1
+
+upper.x = Q3 + 1.5*IQR
+lower.x = Q1 - 1.5*IQR
+
+rbind(upper.y, lower.y, upper.x, lower.x)
+
+}
+
+```
+
+
+```{r build df}
+#bluespined unicornfish
+bluespine <- read_excel("C://Users/gails/Desktop/Sedimentation/Fish Follow Data (January 2023)_JS.xlsx", sheet = "Bluespined Unicornfish", skip = 1)
+bluespine <- fishfunc(bluespine)
+bluespine <- bpmfunc(bluespine)
+name <- rep("bluespine", nrow(bluespine))
+bluespine$Species <- name
+type <- rep("browser", nrow(bluespine))
+bluespine$Type <- type
+
+#sailfin
+sailfin <- read_excel("C://Users/gails/Desktop/Sedimentation/Fish Follow Data (January 2023)_JS.xlsx", sheet = "Sailfin Tang", skip = 1)
+sailfin <- fishfunc(sailfin)
+sailfin <- bpmfunc(sailfin)
+name <- rep("sailfin", nrow(sailfin))
+sailfin$Species <- name
+type <- rep("browser", nrow(sailfin))
+sailfin$Type <- type
+
+#convict tang
+convict <- read_excel("C://Users/gails/Desktop/Sedimentation/Fish Follow Data (January 2023)_JS.xlsx", sheet = "Convict Tang", skip = 1)
+convict <- fishfunc(convict)
+convict <- bpmfunc(convict)
+name <- rep("convict", nrow(convict))
+convict$Species <- name
+type <- rep("grazer", nrow(convict))
+convict$Type <- type
+
+#ringtail
+ringtail <- read_excel("C://Users/gails/Desktop/Sedimentation/Fish Follow Data (January 2023)_JS.xlsx", sheet = "Ringtail Surgeonfish", skip = 1)
+ringtail <- fishfunc(ringtail)
+ringtail <- bpmfunc(ringtail)
+name <- rep("ringtail", nrow(ringtail))
+ringtail$Species <- name
+type <- rep("grazer", nrow(ringtail))
+ringtail$Type <- type
+
+#yellowtang
+yellowtang <- read_excel("C://Users/gails/Desktop/Sedimentation/Fish Follow Data (January 2023)_JS.xlsx", sheet = "Yellow Tang", skip = 1)
+yellowtang <- fishfunc(yellowtang)
+yellowtang <- bpmfunc(yellowtang)
+name <- rep("yellowtang", nrow(yellowtang))
+yellowtang$Species <- name
+type <- rep("grazer", nrow(yellowtang))
+yellowtang$Type <- type
+
+#bullethead parrot
+bullethead <- read_excel("C://Users/gails/Desktop/Sedimentation/Fish Follow Data (January 2023)_JS.xlsx", sheet = "Bullethead Parrotfish", skip = 1)
+bullethead <- fishfunc(bullethead)
+bullethead <- bpmfunc(bullethead)
+name <- rep("bullethead", nrow(bullethead))
+bullethead$Species <- name
+type <- rep("scraper", nrow(bullethead))
+bullethead$Type <- type
+
+#common parrot
+commonparrot <- read_excel("C://Users/gails/Desktop/Sedimentation/Fish Follow Data (January 2023)_JS.xlsx", sheet = "Bullethead Parrotfish", skip = 1)
+commonparrot <- fishfunc(commonparrot)
+commonparrot <- bpmfunc(commonparrot)
+name <- rep("commonparrot", nrow(commonparrot))
+commonparrot$Species <- name
+type <- rep("scraper", nrow(commonparrot))
+commonparrot$Type <- type
+
+
+#combining datasets
+fish <- rbind(bluespine, sailfin, convict, ringtail, yellowtang, bullethead, commonparrot)
+fish
+
+```
+
+
+```{r turbidity trends}
+
+#combined
+ggplot(data = fish, aes(x = Date, y = Turb.NTU)) +
+  geom_point()
+
+ggplot(data = fish, aes(x = Turb.NTU, y = `DO.%sat`)) +
+  geom_point()
+
+#Location 1
+L1 <- filter(fish, Location == "1")
+
+ggplot(data = L1, aes(x = Date, y = Turb.NTU, col = Site)) +
+  geom_point()
+
+L1.lm <- lm(Turb.NTU~Date, L1)
+L1.sum <- summary(L1.lm)
+
+```
+
+
+```{r functions for model fitting}
+
+polyfunc <- function(fish){
+lm <- lm(Total.bpm ~ Turb.NTU, fish)
+sum <- summary(lm)
+p1 <- sum$adj.r.squared
+
+lm <- lm(Total.bpm ~ poly(Turb.NTU,2), fish)
+sum <- summary(lm)
+p2 <- sum$adj.r.squared
+
+lm <- lm(Total.bpm ~ poly(Turb.NTU,3), fish)
+sum <- summary(lm)
+p3 <- sum$adj.r.squared
+
+lm <- lm(Total.bpm ~ poly(Turb.NTU,4), fish)
+sum <- summary(lm)
+p4 <- sum$adj.r.squared
+
+lm <- lm(Total.bpm ~ poly(Turb.NTU,5), fish)
+sum <- summary(lm)
+p5 <- sum$adj.r.squared
+
+lm <- lm(Total.bpm ~ poly(Turb.NTU,6), fish)
+sum <- summary(lm)
+p6 <- sum$adj.r.squared
+
+lm <- lm(Total.bpm ~ poly(Turb.NTU,7), fish)
+sum <- summary(lm)
+p7 <- sum$adj.r.squared
+
+lm <- lm(Total.bpm ~ poly(Turb.NTU,8), fish)
+sum <- summary(lm)
+p8 <- sum$adj.r.squared
+
+lm <- lm(Total.bpm ~ poly(Turb.NTU,9), fish)
+sum <- summary(lm)
+p9 <- sum$adj.r.squared
+
+r2 <- rbind(p1, p2, p3, p4, p5, p6, p7, p8, p9)
+r2 <- data.frame(r2)
+
+name <- c("p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9")
+name <- data.frame(name)
+comb.df <- cbind(r2, name)
+
+ggplot(comb.df, aes(x = name, y = r2)) +
+  geom_point(colour="black") +
+  geom_point(data = comb.df[which(comb.df$r2 == max(comb.df$r2)),], 
+             aes(x = name, y = r2), 
+             colour="red", 
+             size=5)
+
+}
+
+sigfunc <- function(fish){
+
+lm <- lm(Total.bpm ~ poly(Turb.NTU,9), fish)
+sum <- summary(lm)
+p9 <- sum$coefficients
+
+pval <- p9[2:10,4]
+pval <- data.frame(pval)
+
+name <- c("s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9")
+name <- data.frame(name)
+comb.df <- cbind(pval, name)
+
+ggplot(comb.df, aes(x = name, y = pval)) +
+  geom_point(colour="black") +
+  geom_point(data = comb.df[which(comb.df$pval == max(comb.df$pval)),], 
+             aes(x = name, y = pval), 
+             colour="red", 
+             size=5)
+
+}
+
+```
+
+
+```{r browsers: plotting feeding AND non-feeding}
+
+browser <- filter(fish, Type == "browser")
+grazers <- filter(fish, Type == "grazer")
+scrapers <- filter(fish, Type == "scraper")
+
+LOOCVfunc.all <- function(fishgroup){
+
+loocv_error <- function(x) {
+  glm.fit <- glm(Total.bpm ~ poly(Turb.NTU, x), data = fishgroup)
+  cv.glm(fishgroup, glm.fit)$delta[1]
+}
+loocv <- 1:5 %>% map_dbl(loocv_error)
+loocv <- data.frame(loocv)
+order <- which(loocv$loocv == min(loocv$loocv))
+
+p <- ggplot(data = fishgroup, aes(x = Turb.NTU, y = Total.tb)) +
+  geom_point(aes(col = Species)) +
+  stat_smooth(method='lm', formula = y ~ poly(x, order), col = "black", se = FALSE) +
+  theme(legend.position = "bottom")
+
+#total tb or bpm???
+
+ggMarginal(p, type = "histogram", fill="transparent")
+
+}
+
+LOOCVfunc.all(browser)
+
+LOOCVfunc.all(grazers)
+
+LOOCVfunc.all(scrapers)
+
+```
+
+
+```{r browsers: prop of time feeding}
+
+browser <- filter(fish, Type == "browser")
+
+feeding.prop <- sum(browser$Total.tb > 0)/length(browser$Total.tb)
+
+feeding.time <- feeding.prop*3
+nonfeeding.time <- 3 - feeding.time
+
+```
+
+
+```{r plotting when fish feed}
+
+LOOCVfunc <- function(fish){
+  
+feeding <- fish[which(fish$Total.tb > 0), ]
+
+loocv_error <- function(x) {
+  glm.fit <- glm(Total.tb ~ poly(Turb.NTU, x), data = browser)
+  cv.glm(browser, glm.fit)$delta[1]
+}
+
+loocv <- 1:10 %>% map_dbl(loocv_error)
+loocv <- data.frame(loocv)
+order <- which(loocv$loocv == min(loocv$loocv))
+
+ggplot(data = feeding, aes(x = Turb.NTU, y = Total.tb)) +
+  geom_point(aes(col = Species)) +
+  stat_smooth(method='lm', formula = y ~ poly(x, order), col = "black", se = FALSE)+
+  theme(legend.position = "bottom")
+
+}
+
+LOOCVfunc(browser)
+
+LOOCVfunc(grazers)
+
+LOOCVfunc(scrapers)
+
+```
+
+
+```{r browsers: what are they feeding on, when they feed}
+
+#scale by feeding time (not all feeding times are 3 minutes)??^
+#bpm * prop = ?
+
+feed.prop.func <- function(fish){
+feeding <- fish[which(fish$Total.tb > 0), ]
+
+macro.prop <- sum(feeding$Macro.sum > 0)/length(feeding$Macro.sum)
+macro.feeding.time <- macro.prop*3
+
+turf.prop <- sum(feeding$Turf.tb > 0)/nrow(feeding)
+turf.feeding.time <- turf.prop*3
+
+coralext.prop <- sum(feeding$CoralExt.tb > 0)/nrow(feeding)
+coralext.feeding.time <- coralext.prop*3
+
+betbr.prop <- sum(feeding$BetBranch.tb > 0)/nrow(feeding)
+betbr.feeding.time <- betbr.prop*3
+
+CCA.prop <- sum(feeding$CCA.tb > 0)/nrow(feeding)
+CCA.feeding.time <- CCA.prop*3
+
+sponge.prop <- sum(feeding$Sponge.tb > 0)/nrow(feeding)
+sponge.feeding.time <- sponge.prop*3
+
+other.prop <- sum(feeding$Other.tb > 0)/nrow(feeding)
+other.feeding.time <- other.prop*3
+
+bfp <- rbind(macro.feeding.time, turf.feeding.time, coralext.feeding.time, betbr.feeding.time, CCA.feeding.time, sponge.feeding.time, other.feeding.time)
+bfp <- data.frame(bfp)
+colnames(bfp) <- "prop"
+bfp
+}
+
+feed.prop.func(fish = browser)
+
+feed.prop.func(fish = grazers)
+
+feed.prop.func(fish = scrapers)
+
+```
+
+
+```{r browsers: plotting diff feeding substrates}
+
+feed.plot.func <- function(fish){
+  
+feeding <- fish[which(fish$Total.tb > 0), ]
+
+macro <- filter(feeding, Macro.sum > 0)
+x <- which(colnames(macro) == "Turb.NTU")
+y <- which(colnames(macro) == "Macro.sum")
+macro <- subset(macro, select = c(x, y))
+var <- rep("macro", nrow(macro))
+var <- data.frame(var)
+macro <- cbind(macro, var)
+colnames(macro) <- c("Turb.NTU", "Value", "Var")
+macro
+
+turf <- filter(feeding, Turf.tb > 0)
+x <- which(colnames(turf) == "Turb.NTU")
+y <- which(colnames(turf) == "Turf.tb")
+turf <- subset(turf, select = c(x, y))
+var <- rep("turf", nrow(turf))
+var <- data.frame(var)
+turf <- cbind(turf, var)
+colnames(turf) <- c("Turb.NTU", "Value", "Var")
+turf
+
+coralext <- filter(feeding, CoralExt.tb > 0)
+x <- which(colnames(coralext) == "Turb.NTU")
+y <- which(colnames(coralext) == "CoralExt.tb")
+coralext <- subset(coralext, select = c(x, y))
+var <- rep("coralext", nrow(coralext))
+var <- data.frame(var)
+coralext <- cbind(coralext, var)
+colnames(coralext) <- c("Turb.NTU", "Value", "Var")
+coralext
+
+betbr <- filter(feeding, BetBranch.tb > 0)
+x <- which(colnames(betbr) == "Turb.NTU")
+y <- which(colnames(betbr) == "BetBranch.tb")
+betbr <- subset(betbr, select = c(x, y))
+var <- rep("betbr", nrow(betbr))
+var <- data.frame(var)
+betbr <- cbind(betbr, var)
+colnames(betbr) <- c("Turb.NTU", "Value", "Var")
+betbr
+
+CCA <- filter(feeding, CCA.tb > 0)
+x <- which(colnames(CCA) == "Turb.NTU")
+y <- which(colnames(CCA) == "CCA.tb")
+CCA <- subset(CCA, select = c(x, y))
+var <- rep("CCA", nrow(CCA))
+var <- data.frame(var)
+CCA <- cbind(CCA, var)
+colnames(CCA) <- c("Turb.NTU", "Value", "Var")
+CCA
+
+other <- filter(feeding, Other.tb > 0)
+x <- which(colnames(other) == "Turb.NTU")
+y <- which(colnames(other) == "Other.tb")
+other <- subset(other, select = c(x, y))
+var <- rep("CCA", nrow(other))
+var <- data.frame(var)
+other <- cbind(other, var)
+colnames(other) <- c("Turb.NTU", "Value", "Var")
+other
+
+comb <- rbind(macro, turf, coralext, betbr, CCA, other)
+
+ggplot(data = comb, aes(x = Turb.NTU, y = Value, col = Var)) +
+  geom_smooth(span = 1, se = FALSE) +
+  theme(legend.position = "bottom") +
+  xlim(0,7)
+
+}
+
+b <- feed.plot.func(fish = browser)
+
+g <- feed.plot.func(fish = grazers)
+
+s <- feed.plot.func(fish = scrapers)
+
+ggarrange(b, g, s, nrow = 3, common.legend = TRUE)
+
+```
+
