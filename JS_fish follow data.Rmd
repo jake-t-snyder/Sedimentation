@@ -354,13 +354,42 @@ LOOCVfunc.all(scrapers)
 
 
 ```{r browsers: prop of time feeding}
-
+#browser
 browser <- filter(fish, Type == "browser")
 
 feeding.prop <- sum(browser$Total.tb > 0)/length(browser$Total.tb)
 
 feeding.time <- feeding.prop*3
 nonfeeding.time <- 3 - feeding.time
+
+df_b <- rbind(feeding.time, nonfeeding.time)
+df_b <- data.frame(df_b)
+
+#grazer
+grazer <- filter(fish, Type == "grazer")
+
+feeding.prop <- sum(grazer$Total.tb > 0)/length(grazer$Total.tb)
+
+feeding.time <- feeding.prop*3
+nonfeeding.time <- 3 - feeding.time
+
+df_g <- rbind(feeding.time, nonfeeding.time)
+df_g <- data.frame(df_g)
+
+#scraper
+scraper <- filter(fish, Type == "scraper")
+
+feeding.prop <- sum(scraper$Total.tb > 0)/length(scraper$Total.tb)
+
+feeding.time <- feeding.prop*3
+nonfeeding.time <- 3 - feeding.time
+
+df_s <- rbind(feeding.time, nonfeeding.time)
+df_s <- data.frame(df_s)
+
+df <- cbind(df_b, df_g, df_s)
+colnames(df) <- c("browser", "grazer", "scraper")
+df
 
 ```
 
@@ -405,37 +434,71 @@ feed.prop.func <- function(fish){
 feeding <- fish[which(fish$Total.tb > 0), ]
 
 macro.prop <- sum(feeding$Macro.sum > 0)/length(feeding$Macro.sum)
-macro.feeding.time <- macro.prop*3
+macro <- macro.prop*3
 
 turf.prop <- sum(feeding$Turf.tb > 0)/nrow(feeding)
-turf.feeding.time <- turf.prop*3
+turf <- turf.prop*3
 
 coralext.prop <- sum(feeding$CoralExt.tb > 0)/nrow(feeding)
-coralext.feeding.time <- coralext.prop*3
+coralext <- coralext.prop*3
 
 betbr.prop <- sum(feeding$BetBranch.tb > 0)/nrow(feeding)
-betbr.feeding.time <- betbr.prop*3
+betbr <- betbr.prop*3
 
 CCA.prop <- sum(feeding$CCA.tb > 0)/nrow(feeding)
-CCA.feeding.time <- CCA.prop*3
+CCA <- CCA.prop*3
 
 sponge.prop <- sum(feeding$Sponge.tb > 0)/nrow(feeding)
-sponge.feeding.time <- sponge.prop*3
+sponge <- sponge.prop*3
 
 other.prop <- sum(feeding$Other.tb > 0)/nrow(feeding)
-other.feeding.time <- other.prop*3
+other <- other.prop*3
 
-bfp <- rbind(macro.feeding.time, turf.feeding.time, coralext.feeding.time, betbr.feeding.time, CCA.feeding.time, sponge.feeding.time, other.feeding.time)
+bfp <- rbind(macro, turf, coralext, betbr, CCA, sponge, other)
 bfp <- data.frame(bfp)
 colnames(bfp) <- "prop"
 bfp
 }
 
-feed.prop.func(fish = browser)
+df_b <- feed.prop.func(fish = browser)
 
-feed.prop.func(fish = grazers)
+df_g <- feed.prop.func(fish = grazers)
 
-feed.prop.func(fish = scrapers)
+df_s <- feed.prop.func(fish = scrapers)
+
+df_feed <- cbind(df_b, df_g, df_s)
+colnames(df_feed) <- c("browser", "grazer", "scraper")
+df_feed
+
+row <- data.frame(rownames(df_feed))
+df_b <- data.frame(df_feed[,1])
+var <- rep("browser", nrow(df_b))
+var <- data.frame(var)
+df_b <- cbind(row, df_b, var)
+colnames(df_b) <- c("substrate", "propfeeding", "group")
+df_b
+
+row <- data.frame(rownames(df_feed))
+df_g <- data.frame(df_feed[,2])
+var <- rep("grazer", nrow(df_g))
+var <- data.frame(var)
+df_g <- cbind(row, df_g, var)
+colnames(df_g) <- c("substrate", "propfeeding", "group")
+df_g
+
+row <- data.frame(rownames(df_feed))
+df_s <- data.frame(df_feed[,3])
+var <- rep("scraper", nrow(df_s))
+var <- data.frame(var)
+df_s <- cbind(row, df_s, var)
+colnames(df_s) <- c("substrate", "propfeeding", "group")
+df_s
+
+df_fd <- rbind(df_b, df_g, df_s)
+
+ggplot(df_fd, aes(x = group, y = propfeeding, fill = substrate)) +
+  geom_bar(position = "fill", stat = "identity",color='black',width=0.9) +
+  scale_y_continuous(labels = scales::percent)
 
 ```
 
@@ -511,7 +574,8 @@ comb <- rbind(macro, turf, coralext, betbr, CCA, other)
 ggplot(data = comb, aes(x = Turb.NTU, y = Value, col = Var)) +
   geom_smooth(span = 1, se = FALSE) +
   theme(legend.position = "bottom") +
-  xlim(0,7)
+  xlim(0,7) +
+  scale_color_manual(values=c("betbr"="brown", "CCA"="gold2", "coralext"="chartreuse3","macro" = "blue", "turf" = "blueviolet"))
 
 }
 
